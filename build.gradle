@@ -11,4 +11,10 @@ repositories {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
+
+    // this feels like back in 1990, including .jars from the file system
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation "io.ktor:ktor-client-cio:1.4.2"
+    implementation "net.dankito.utils:java-utils:1.0.18"
 }
