@@ -1,5 +1,5 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.5.31'
+    id 'org.jetbrains.kotlin.jvm' version '1.6.10'
 }
 
 group 'net.codinux.banking.fints'
@@ -10,11 +10,10 @@ repositories {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib"
-
-    // this feels like back in 1990, including .jars from the file system
+    // this feels like back in the 1990ies, including .jars from the file system
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    implementation "io.ktor:ktor-client-cio:1.4.2"
-    implementation "net.dankito.utils:java-utils:1.0.18"
+    // TODO: why do i have to include it here again? As it's already exported by by multiplatform-utils or fints4k respectively
+    implementation "org.jetbrains.kotlinx:kotlinx-datetime:0.3.2"
+    implementation "io.ktor:ktor-client-okhttp:2.0.0-beta-1"
 }

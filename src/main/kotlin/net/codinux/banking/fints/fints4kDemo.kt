@@ -1,11 +1,11 @@
 package net.codinux.banking.fints
 
-import net.dankito.banking.bankfinder.InMemoryBankFinder
-import net.dankito.banking.fints.FinTsClientForCustomer
+import net.dankito.banking.client.model.response.GetAccountDataResponse
+import net.dankito.banking.fints.FinTsClient
 import net.dankito.banking.fints.callback.SimpleFinTsClientCallback
+import net.dankito.banking.fints.getAccountData
 import net.dankito.banking.fints.model.*
-import net.dankito.banking.fints.response.client.AddAccountResponse
-import java.util.concurrent.CountDownLatch
+import net.dankito.banking.fints.util.toBigDecimal
 import kotlin.system.exitProcess
 
 
@@ -25,13 +25,13 @@ class fints4kDemo {
   private val password = ""
 
 
-  private val callback = SimpleFinTsClientCallback({ bank, tanChallenge -> handleTanRequired(bank, tanChallenge) }) { supportedTanMethods, suggestedTanMethod -> selectTanMethod(supportedTanMethods, suggestedTanMethod) }
+  private val callback = SimpleFinTsClientCallback( { tanChallenge -> handleTanRequired(tanChallenge) }) { supportedTanMethods, suggestedTanMethod -> selectTanMethod(supportedTanMethods, suggestedTanMethod) }
 
-  private fun handleTanRequired(bank: BankData, tanChallenge: TanChallenge): EnterTanResult {
+  private fun handleTanRequired(tanChallenge: TanChallenge) {
     // if a TAN is requested, enter the TAN here. For information what to do see parameter tanChallenge
-    // return EnterTanResult.userEnteredTan("")
+    // tanChallenge.userEnteredTan("")
 
-    return EnterTanResult.userDidNotEnterTan() // action will be aborted then
+    tanChallenge.userDidNotEnterTan() // action will be aborted then
   }
 
   private fun selectTanMethod(supportedTanMethods: List<TanMethod>, suggestedTanMethod: TanMethod?): TanMethod? {
@@ -41,64 +41,44 @@ class fints4kDemo {
 
 
   fun run() {
+    val client = FinTsClient(callback) // uses the callback defined above; if you don't want to handle the callback methods simply use: val client = FinTsClient(SimpleFinTsClientCallback())
 
-    // step 1: get the FinTS server address of your bank
-    val bankInfos = InMemoryBankFinder().findBankByBankCode(bankCode)
-    val bankSupportingFinTs = bankInfos.firstOrNull { it.pinTanAddress != null }
-    if (bankSupportingFinTs == null) {
-      exitWithError(if (bankInfos.isEmpty()) "No bank found for bank code $bankCode" else "Your bank ${bankInfos.first().name} does not support FinTS")
-      return
-    }
+    // gets account data (like bank accounts etc.), the balance (Saldo) and account transactions (Kontoumsätze) of last 90 days as most banks don't
+    // afford a TAN for transactions of last 90 days
+    val accountDataResponse = client.getAccountData(bankCode, loginName, password)
 
-
-    // step 2: get account data (like bank accounts etc.)
-    val bank = BankData(bankCode, loginName, password, bankSupportingFinTs.pinTanAddress!!, bankSupportingFinTs.bic, bankSupportingFinTs.name)
-
-    val client = FinTsClientForCustomer(bank, callback)
-
-    val countDownLatch = CountDownLatch(1)
-
-    client.addAccountAsync(AddAccountParameter(bank)) { addAccountResponse ->
-      if (addAccountResponse.successful == false) {
-        exitWithError("Could not get account data: ${addAccountResponse.errorMessage ?: addAccountResponse.errorsToShowToUser.joinToString("\n")}")
-      } else {
-        logRetrievedAccountData(addAccountResponse)
-
-        // step 3: get account transactions. The account transactions of the last 90 days should already be included in AddAccountResponse if it's possible to retrieve them
-        // without TAN. If not then it's required to enter a TAN which could get difficult at a command line program (use e.g. the debugging window and set the TAN there).
-        // client.getTransactionsAsync(GetTransactionsParameter(bank.accounts.first())) { getTransactionsResponse ->  } // retrieves all account transactions that server holds. But requires a TAN
-
-        // step 4: transfer some money
-//        client.doBankTransferAsync(BankTransferData("Christian Dankl", "DE11720512100560165557", "BYLADEM1AIC", Money(Amount("100"), "EUR"), "Thanks for your great library"),
-//          bank.accounts.first()) { transferMoneyResponse -> }
-
-        countDownLatch.countDown()
-      }
-    }
-
-    countDownLatch.await() // wait for asynchronous operation to finish
+    logRetrievedAccountData(accountDataResponse)
   }
 
 
-  private fun logRetrievedAccountData(response: AddAccountResponse) {
-    val accounts = response.retrievedData
+  private fun logRetrievedAccountData(response: GetAccountDataResponse) {
+    if (response.customerAccount == null) {
+      println("Could not retrieve account data: ${response.error} ${response.errorMessage}")
+      return
+    }
+
+    val customer = response.customerAccount!!
+    val accounts = customer.accounts
+
+    println()
+    println("${customer.bankName} ${accounts.sumOf { it.balance.toBigDecimal() }} ${accounts.firstOrNull()?.balance?.currency}")
+    println()
 
     println("Retrieved ${accounts.size} account(s):")
 
     println("\nIdentifier\t\tName\t\t\t\tBalance\t\t\tRetrieve transactions | Retrieve balance | Transfer money | Realtime transfer")
 
-    accounts.forEach { accountData ->
-      val account = accountData.account
-      println("${account.accountIdentifier}\t\t${account.productName}\t${accountData.balance}\t\t\t${account.supportsRetrievingAccountTransactions}\t\t\t\t" +
-        "${account.supportsRetrievingBalance}\t\t\t\t${account.supportsTransferringMoney}\t\t\t\t${account.supportsRealTimeTransfer}")
+    accounts.forEach { account ->
+      println("${account.identifier}\t\t${account.productName}\t${account.balance}\t\t\t${account.supportsRetrievingTransactions}\t\t\t\t" +
+        "${account.supportsRetrievingBalance}\t\t\t\t${account.supportsTransferringMoney}\t\t\t\t${account.supportsInstantPayment}")
     }
 
     println("\n\nAccount transactions:")
 
-    accounts.forEach { accountData ->
-      println("\n${accountData.account.productName ?: accountData.account.accountIdentifier}\n")
+    accounts.forEach { account ->
+      println("\n${account.productName ?: account.identifier}\n")
 
-      accountData.bookedTransactions.forEach { transaction ->
+      account.bookedTransactions.forEach { transaction ->
         println("${transaction.bookingDate} ${transaction.amount}\t${transaction.otherPartyName ?: "\t\t"}\t${transaction.unparsedReference}")
       }
     }
