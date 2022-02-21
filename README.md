@@ -2,4 +2,14 @@
 
 Shows the usage of fints4k.
 
-See file [fints4kDemo.kt](src/main/kotlin/net/codinux/banking/fints/fints4kDemo.kt) that shows in a commandline program how to use its API.
+In essence:
+
+```kotlin
+    val client = FinTsClient(SimpleFinTsClientCallback())
+
+    val accountData = client.getAccountData("<Bankleitzahl>", "<Onlinebanking Login / Anmeldename>", "<Password>")
+
+    // have fun with your shiny transactions (Kontoumsaetze) and other account data
+```
+
+For detailed usage like TAN handling see file [fints4kDemo.kt](src/main/kotlin/net/codinux/banking/fints/fints4kDemo.kt).
