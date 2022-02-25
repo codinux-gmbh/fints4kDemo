@@ -1,10 +1,12 @@
 package net.codinux.banking.fints
 
+import net.dankito.banking.client.model.parameter.TransferMoneyParameter
 import net.dankito.banking.client.model.response.GetAccountDataResponse
 import net.dankito.banking.fints.FinTsClient
 import net.dankito.banking.fints.callback.SimpleFinTsClientCallback
 import net.dankito.banking.fints.getAccountData
 import net.dankito.banking.fints.model.*
+import net.dankito.banking.fints.transferMoney
 import net.dankito.banking.fints.util.toBigDecimal
 import kotlin.system.exitProcess
 
@@ -40,14 +42,36 @@ class fints4kDemo {
   }
 
 
-  fun run() {
-    val client = FinTsClient(callback) // uses the callback defined above; if you don't want to handle the callback methods simply use: val client = FinTsClient(SimpleFinTsClientCallback())
+  private val client = FinTsClient(callback) // uses the callback defined above; if you don't want to handle the callback methods simply use: val client = FinTsClient(SimpleFinTsClientCallback())
 
+
+  fun run() {
     // gets account data (like bank accounts etc.), the balance (Saldo) and account transactions (Kontoumsätze) of last 90 days as most banks don't
     // afford a TAN for transactions of last 90 days
     val accountDataResponse = client.getAccountData(bankCode, loginName, password)
 
     logRetrievedAccountData(accountDataResponse)
+  }
+
+
+  fun transferMoneyDemo() {
+    // transfer money - make a donation to Médecins Sans Frontières of 10 Euros
+    val response = client.transferMoney(bankCode, loginName, password, "Ärzte ohne Grenzen e.V.", "DE72 3702 0500 0009 7097 00", Money("10.00", "EUR"), "Spende")
+    // then check response object if transfer succeeded or not
+
+    // for non-German receiver banks the BIC is required
+//    val paramBic = TransferMoneyParameter(bankCode, loginName, password, null, "Médecins Sans Frontières", "BE73 0000 0000 6060", "BPOTBEB1", Money("10.00", "EUR"), "Donation")
+//    client.transferMoney(paramBic)
+
+    // if you have more than one bank account that supports money transfer you either have to specify which bank account to use ...
+//    val paramSpecifyAccount = TransferMoneyParameter(bankCode, loginName, password, BankAccountIdentifierImpl("Kontonummer", null, "IBAN"), "Ärzte ohne Grenzen e.V.", "DE72 3702 0500 0009 7097 00", null, Money("10.00", "EUR"), "Donation")
+//    client.transferMoney(paramSpecifyAccount)
+
+    // ... or set the selectAccount callback and choose which bank account to use there:
+//    val paramSelectAccount = TransferMoneyParameter(bankCode, loginName, password, null, "Ärzte ohne Grenzen e.V.", "DE72 3702 0500 0009 7097 00", null, Money("10.00", "EUR"), "Donation") { accounts ->
+//      accounts.first()
+//    }
+//    client.transferMoney(paramSelectAccount)
   }
 
 
